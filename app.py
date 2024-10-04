@@ -3,14 +3,20 @@ import pygetwindow as gw
 import win32api
 import win32con
 import win32gui
+import win32process  # Import win32process for process information
 
-def get_gmod_window():
-    """Get the window handle for Garry's Mod."""
+def get_gmod_windows():
+    """Get a list of window handles for all Garry's Mod instances along with their PIDs."""
+    gmod_windows = []
     windows = gw.getAllTitles()
     for window_title in windows:
         if "Garry's Mod" in window_title:
-            return gw.getWindowsWithTitle(window_title)[0]
-    return None
+            window = gw.getWindowsWithTitle(window_title)[0]
+            hwnd = window._hWnd
+            # Get the PID using win32process
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            gmod_windows.append((window, pid))  # Store tuple of (window, pid)
+    return gmod_windows
 
 def send_key_to_window(hwnd, key):
     """Send a key press event to the specified window."""
@@ -31,16 +37,36 @@ def move_in_circle(hwnd):
         send_key_to_window(hwnd, key)
         time.sleep(0.2)  # Delay between key presses
 
+def choose_window(gmod_windows):
+    """Allow the user to choose a Garry's Mod window from a list, displaying title and PID."""
+    print("Available Garry's Mod windows:")
+    for i, (window, pid) in enumerate(gmod_windows):
+        print(f"{i + 1}: {window.title} (PID: {pid})")
+    
+    while True:
+        try:
+            choice = int(input("Select a window number (or 0 to exit): "))
+            if choice == 0:
+                print("Exiting...")
+                return None
+            if 1 <= choice <= len(gmod_windows):
+                return gmod_windows[choice - 1][0]._hWnd  # Return the window handle
+            else:
+                print("Invalid choice. Please try again.")
+        except ValueError:
+            print("Please enter a valid number.")
+
 def main():
     print("Anti-AFK script started. Press Ctrl+C to stop.")
-    gmod_window = get_gmod_window()
-    if not gmod_window:
-        print("Could not find Garry's Mod window.")
+    gmod_windows = get_gmod_windows()
+    if not gmod_windows:
+        print("Could not find any Garry's Mod windows.")
         return
-    else:
-        print("Found Garry's Mod window.")
     
-    hwnd = gmod_window._hWnd
+    hwnd = choose_window(gmod_windows)
+    if hwnd is None:
+        return
+
     while True:
         move_in_circle(hwnd)
         time.sleep(1)
